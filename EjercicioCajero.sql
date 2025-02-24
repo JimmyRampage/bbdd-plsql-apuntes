@@ -96,3 +96,130 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE(RES);
 END;
 /
+
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+-- PROBANDO INSTR -> INSTR(cadena, subcadena)
+DECLARE
+    v_monto VARCHAR2(100) := '1-200#3-50#2-2#';
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(INSTR(v_monto, '#')); -- Buscando la primera coinsidencia
+END;
+/
+
+-- PROBANDO SUBSTR -> SUBSTR(cadena, inicio, longitud)
+DECLARE
+    v_monto VARCHAR2(100) := '1-200#3-50#2-2#';
+BEGIN
+    DBMS_OUTPUT.PUT_LINE(SUBSTR(v_monto, 1, 6 -1)); -- recortando el string
+END;
+/
+
+-- USANDO AMBOS
+
+DECLARE
+    v_monto VARCHAR2(100) := '1-200#3-50#2-2#';
+    v_corte NUMBER(10) := 0;
+    
+    -- VARIABLES MONTO TOTAL Y VUELTO
+    v_monto_total_recibido NUMBER(10) := 0;
+    v_vuelto NUMBER(10) := 0;
+
+    -- VARIABLES AUXILIARES
+    v_monto_aux VARCHAR2(100);
+    v_cantidad_aux NUMBER(10);
+    v_denominacion_aux NUMBER(10);
+
+    -- VARIABLES PARA CONSULTA
+BEGIN
+    WHILE LENGTH(v_monto) > 0 LOOP
+        -- SEPARAMOS cantidad-denominacion
+        v_corte := INSTR(v_monto, '#');
+        v_monto_aux := SUBSTR(v_monto, 1, v_corte - 1); -- recortando el string -> 1-200
+        v_monto := SUBSTR(v_monto, v_corte + 1); -- se reasigna el valor nuevo al monto -> 3-50#2-2#
+
+        -- AHORA QUITAMOS EL '-'
+        v_corte := INSTR(v_monto_aux ,'-');
+        v_cantidad_aux := TO_NUMBER(SUBSTR(v_monto_aux, 1, v_corte - 1));
+        v_denominacion_aux := TO_NUMBER(SUBSTR(v_monto_aux, v_corte +1));
+
+
+        IF CHECK_COIN(v_denominacion_aux) THEN
+            DBMS_OUTPUT.PUT_LINE('Moneda existe');
+            DBMS_OUTPUT.PUT_LINE(v_monto_aux);
+            DBMS_OUTPUT.PUT_LINE(v_cantidad_aux);
+            DBMS_OUTPUT.PUT_LINE(v_denominacion_aux);
+            v_monto_total_recibido := v_monto_total_recibido + (v_cantidad_aux * v_denominacion_aux);
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('Moneda no existe');
+        END IF;
+
+    END LOOP;
+
+    DBMS_OUTPUT.PUT_LINE(TO_CHAR(v_monto_total_recibido) || '€');
+
+END;
+/
+select * from CAJERO;
+
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+
+DECLARE
+    TYPE TABLA_RECIBIDO IS TABLE OF NUMBER INDEX BY BINARY_INTEGER;
+/
+
+CREATE OR REPLACE PROCEDURE crear_table(p_tabla OUT TABLA_RECIBIDO, v_monto2 VARCHAR2) IS
+
+    v_monto VARCHAR2(100) := v_monto2;
+    -- VARIABLE PARA HACER LOS CORTES DEL SUBSTRING
+    v_corte NUMBER(10) := 0;
+    -- VARIABLES MONTO TOTAL Y VUELTO
+    v_monto_total_recibido NUMBER(10) := 0;
+    v_vuelto NUMBER(10) := 0;
+
+    -- VARIABLES AUXILIARES
+    v_monto_aux VARCHAR2(100);
+    v_cantidad_aux NUMBER(10);
+    v_denominacion_aux NUMBER(10);
+
+BEGIN
+    p_tabla.DELETE; -- PARA LIMPIAR LA TABLA
+    WHILE LENGTH(v_monto) > 1 LOOP
+        v_corte := INSTR(v_monto, '#');
+        v_monto_aux := SUBSTR(v_monto, 1, v_corte - 1); -- recortando el string -> 1-200
+        v_monto := SUBSTR(v_monto, v_corte + 1); -- se reasigna el valor nuevo al monto -> 3-50#2-2#
+
+        v_corte := INSTR(v_monto_aux ,'-');
+        v_cantidad_aux := TO_NUMBER(SUBSTR(v_monto_aux, 1, v_corte - 1));
+        v_denominacion_aux := TO_NUMBER(SUBSTR(v_monto_aux, v_corte +1));
+
+        IF CHECK_COIN(v_denominacion_aux) THEN
+            p_tabla(v_denominacion_aux) := v_cantidad_aux;
+            v_monto_total_recibido := v_monto_total_recibido + (v_cantidad_aux * v_denominacion_aux);
+
+        ELSE
+            EXIT; -- GENERAR UNA EXCEPCION
+        END IF;
+
+    END LOOP;
+END;
+/
+
+-- probando el procedimiento
+DECLARE
+    TYPE TABLA_RECIBIDO IS TABLE OF NUMBER INDEX BY BINARY_INTEGER;
+    tb_r TABLA_RECIBIDO;
+
+BEGIN
+    crear_table(tb_r, '1-200#3-50#2-2#');
+
+    FOR I IN tb_r.FIRST..tb_r.LAST LOOP
+        DBMS_OUTPUT.PUT_LINE(i || ' ' || tb_r(i));
+    END LOOP;
+END;
+/
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------
